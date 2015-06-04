@@ -1,0 +1,576 @@
+// Faire la rotation de Yaroslavsky
+
+#include "iio.h"
+#include <stdio.h>
+#include <math.h>
+#include <stdbool.h>
+#include <fftw3.h>
+
+// Problème de ce code : transformé de fourier en 2D alors que normalement que 1D.
+void fourierForward(float* in,float* reOut,float* imOut,unsigned int largeur,unsigned int hauteur) ;
+void fourierBackward(float* reIn,float* imIn,float* out,unsigned int largeur,unsigned int hauteur) ;
+int trans_ligne(float *img,int w,int h,float *vect_trans,int l) ;
+int trans_colonne(float *img,int w,int h,float *vect_trans,int l) ;
+ 
+void fourier1dForward(float* in,float* reOut,float* imOut,unsigned int largeur) ;
+void fourier1dBackward(float* reIn,float* imIn,float* out,unsigned int largeur) ;
+
+
+
+float absolute(float value) {
+  if (value < 0) {
+    return -value;
+  }
+  else {
+    return value;  
+  }
+}
+
+
+// Rotation :
+int yaroslavsky(float *img,float *img_f,int x,int z,int w_f,int h_f,double *a){
+
+int troll ;
+if (x<=z) {troll=z;}else{troll=x;}
+
+for(int p=0;p<3;p++){
+
+	float *img_aux=malloc(2*troll*2*troll*sizeof(float));
+
+	for (int i=0;i<2*troll;i++){
+		for (int j=0;j<2*troll;j++){
+			img_aux[i+(2*troll)*(j)]=0 ;
+		}
+	}
+
+	for (int i=0;i<x;i++){
+		for (int j=0;j<z;j++){
+		 	img_aux[troll/2+(troll-x)/2+i+(2*troll)*(troll/2+(troll-z)/2+j)]=img[(i+j*x)*3+p] ;
+		}
+	}
+
+//float img_aux_prems[w*h];
+int w ;
+int h ;
+
+w=troll ;
+h=troll ;
+
+float *img_aux_troll=malloc(2*w*2*h*sizeof(float));
+float ligne_trans[2*h] ;
+float one_col_trans[2*w] ;
+float two_col_trans[2*w] ;
+float pi;
+        pi=3.14159265359 ;
+/*
+float angle;
+
+        angle=-pi/4.0 ;
+        angle=7*pi/16.0 ;
+        angle=pi/16.0 ;
+        angle=4*pi/6.0 ;
+        angle=-angle ;
+        //angle=0 ;
+float cosangle=cos(angle);
+float sinangle=sin(angle) ; */
+/*float cosangle;
+float sinangle;
+
+cosangle=cosmat ;
+sinangle=-sinmat ;*/
+
+double cosangle ;
+double sinangle ;
+//printf("bonjour\n") ;
+//printf("bonjour\n%f %f\n",a[0],a[1]) ;
+cosangle=a[0] ;
+sinangle=a[1] ;
+//printf("bonjour\n") ;
+float tandemiangle ;
+float megatrollolo ;	
+// si l'angle est sup à pi/2 en valeur absolue.
+// je ne sais pas trop si lorsque l'angle est supérieur à pi il le fait intelligement ou pas ?
+if(cosangle<0)
+
+{  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		 img_aux_troll[i+2*w*j]=img_aux[(2*w-i-1)+2*w*(2*h-j-1)];
+                 
+		}
+		}
+  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		img_aux[i+2*w*j]=img_aux_troll[i+2*w*j];
+                 
+		}
+		}
+  cosangle=-cosangle ;
+  sinangle=-sinangle ;
+  tandemiangle=sinangle/(1.0+cosangle) ;
+}
+
+ tandemiangle=sinangle/(1.0+cosangle) ;
+//printf("coucou\n") ;
+ 
+// on peut peut-etre faire mieux que ça...
+// si l'angle est supérieur à pi/4 :
+if(absolute(sinangle)>absolute(cosangle))
+//if(0==0)
+{ if (sinangle>=0)
+//if(0==0)
+{ for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		 img_aux_troll[i+2*w*j]=img_aux[j+2*w*(2*w-i-1)];
+                 
+		}
+		}
+  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		img_aux[i+2*w*j]=img_aux_troll[i+2*w*j];
+                 
+		}
+		}
+  megatrollolo=cosangle ;
+  cosangle=sinangle ;
+  sinangle=-megatrollolo ;
+  //cosangle=1 ;
+  //sinangle=0 ;
+  tandemiangle=sinangle/(1.0+cosangle) ;
+}
+else if (sinangle<0)
+//else if (1==0)
+{
+for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		 img_aux_troll[i+2*w*j]=img_aux[(2*h-j-1)+2*w*(i)];
+                 
+		}
+		}
+  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		img_aux[i+2*w*j]=img_aux_troll[i+2*w*j];
+                 
+		}
+		}
+  megatrollolo=cosangle ;
+  cosangle=-sinangle ;
+  sinangle=megatrollolo ;
+  //cosangle=26 ;
+  //sinangle=24 ;
+  tandemiangle=sinangle/(1.0+cosangle) ;
+}
+}
+ // fin si l'angle sup à pi/4
+
+
+
+
+
+
+// Première translation
+	for (int i=0;i<2*w;i++){
+	   one_col_trans[i]=i*tandemiangle;
+
+	}
+
+
+	trans_colonne(img_aux,2*w,2*h,one_col_trans,2*w) ;
+
+        for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		 img_aux_troll[i+2*w*j]=img_aux[i+2*w*good_modulus(j+one_col_trans[w],2*h)];
+                 
+		}
+		}
+  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		img_aux[i+2*w*j]=img_aux_troll[i+2*w*j];
+                 
+		}
+		}
+
+
+
+// seconde translation
+	for (int i=0;i<2*h;i++){
+	   ligne_trans[i]=(-i*sinangle) ;
+
+	}
+
+
+	trans_ligne(img_aux,2*w,2*h,ligne_trans,2*h) ;
+    
+
+	for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		 img_aux_troll[i+2*w*j]=img_aux[good_modulus(i+ligne_trans[h],2*w)+2*w*j];
+                 
+		}
+		}
+  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		img_aux[i+2*w*j]=img_aux_troll[i+2*w*j];
+                 
+		}
+		}
+
+
+// troisième translation
+	for (int i=0;i<2*w;i++){
+	   two_col_trans[i]=i*tandemiangle ;
+
+	}
+
+
+	trans_colonne(img_aux,2*w,2*h,two_col_trans,2*w) ;
+
+    for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		 img_aux_troll[i+2*w*j]=img_aux[i+2*w*good_modulus(j+two_col_trans[w],2*h)];
+                 
+		}
+		}
+  for (int i=0;i<2*w;i++){
+		for (int j=0;j<2*h;j++){
+		img_aux[i+2*w*j]=img_aux_troll[i+2*w*j];
+                 
+		}
+		}
+
+
+
+
+  /*      for (int i=0;i<w_f;i++){
+		for (int j=0;j<h_f;j++){
+		 img_f[(i+j*w_f)*3+p]=img_aux[i+2*w*j];
+                 
+		}
+	}*/
+
+     for (int i=0;i<w_f;i++){
+		for (int j=0;j<h_f;j++){
+		 img_f[(i+j*w_f)*3+p]=img_aux[(i+troll-w_f/2)+2*w*(j+troll-h_f/2)];
+                 
+		}
+	}
+
+
+//for(int i=0;i<w*h*3;i++){img_f[i]=img[i];}
+
+
+}
+	return 0;
+}
+
+
+
+
+
+// Translation ligne :
+
+int trans_ligne(float *img,int w,int h,float *vect_trans,int l){
+
+	        float pi=3.14159265359 ;
+		float *refftimg=malloc(w*h*sizeof(float));
+		float *imfftimg=malloc(w*h*sizeof(float));
+		float *refftrans=malloc(w*h*sizeof(float));
+		float *imfftrans=malloc(w*h*sizeof(float));
+		float ligneimg[w];
+        float lignerefftimg[w];
+		float ligneimfftimg[w];
+		float lignerefftrans[w];
+		float ligneimfftrans[w];
+
+ 		for (int j=0;j<h;j++){
+                  for (int i=0;i<w;i++){
+		      ligneimg[i]=img[i+w*j] ;
+			}
+                  fourier1dForward(ligneimg,lignerefftimg,ligneimfftimg,w) ;
+                   for (int i=0;i<w;i++){
+		      refftimg[i+w*j]=lignerefftimg[i] ;
+                      imfftimg[i+w*j]=ligneimfftimg[i] ;
+			}
+
+		
+		   }
+	       
+
+
+		for (int i=0;i<w;i++){
+		   for (int j=0;j<h;j++){
+			
+                 refftrans[i+j*w]=cos(-2*pi*i*(vect_trans[j]/((float) w)))*refftimg[i+j*w]-sin(-2*pi*i*(vect_trans[j]/((float) w)))*imfftimg[i+j*w];
+                 imfftrans[i+j*w]=sin(-2*pi*i*vect_trans[j]/((float) w))*refftimg[i+j*w]+cos(-2*pi*i*(vect_trans[j]/((float) w)))*imfftimg[i+j*w];		 	
+                    
+ 
+
+		}
+		  }
+
+	for (int j=0;j<h;j++){
+		for (int i=0;i<w;i++){
+		      lignerefftrans[i]=refftrans[i+w*j] ;
+                      ligneimfftrans[i]=imfftrans[i+w*j] ;
+			}
+                  
+                  fourier1dBackward(lignerefftrans,ligneimfftrans,ligneimg,w) ;
+                   
+		for (int i=0;i<w;i++){
+		      img[i+w*j]=ligneimg[i] ;
+			}
+		
+		   }
+              
+
+
+	
+
+	return 0;
+ }
+
+
+// Translation colonnes :
+
+int trans_colonne(float *img,int w,int h,float *vect_trans,int l){
+
+	        float pi=3.14159265359 ;
+	        		float *refftimg=malloc(w*h*sizeof(float));
+		float *imfftimg=malloc(w*h*sizeof(float));
+		float *refftrans=malloc(w*h*sizeof(float));
+		float *imfftrans=malloc(w*h*sizeof(float));
+        float ligneimg[h];
+        float lignerefftimg[h];
+		float ligneimfftimg[h];
+		float lignerefftrans[h];
+		float ligneimfftrans[h];
+
+                for (int i=0;i<w;i++){
+                  for (int j=0;j<h;j++){
+		      ligneimg[j]=img[i+w*j] ;
+			}
+                  fourier1dForward(ligneimg,lignerefftimg,ligneimfftimg,h) ;
+                   for (int j=0;j<h;j++){
+		      refftimg[i+w*j]=lignerefftimg[j] ;
+                      imfftimg[i+w*j]=ligneimfftimg[j] ;
+			}
+
+		
+		   }
+	       
+	
+		
+
+
+		for (int i=0;i<w;i++){
+		   for (int j=0;j<h;j++){
+		
+                 refftrans[i+j*w]=cos(-2.0*pi*j*vect_trans[i]/((float)h))*refftimg[i+j*w]-sin(-2.0*pi*j*vect_trans[i]/((float)h))*imfftimg[i+j*w];
+                 imfftrans[i+j*w]=sin(-2.0*pi*j*vect_trans[i]/((float)h))*refftimg[i+j*w]+cos(-2.0*pi*j*vect_trans[i]/((float)h))*imfftimg[i+j*w];		 	
+                    
+ 
+
+		}
+		  }
+
+               for (int i=0;i<w;i++){
+		for (int j=0;j<h;j++){
+		      lignerefftrans[j]=refftrans[i+w*j] ;
+                      ligneimfftrans[j]=imfftrans[i+w*j] ;
+			}
+                  
+                  fourier1dBackward(lignerefftrans,ligneimfftrans,ligneimg,h) ;
+                   
+		for (int j=0;j<h;j++){
+		      img[i+w*j]=ligneimg[j] ;
+			}
+		
+		   }
+
+
+	
+
+	return 0;
+ }
+
+
+void fourierForward(float* in,
+                    float* reOut,
+                    float* imOut,
+                    unsigned int largeur,
+                    unsigned int hauteur)
+{
+   fftw_complex* spatial_repr;
+   fftw_complex* frequency_repr;
+   unsigned int i;
+   unsigned int j;
+   fftw_plan plan;
+   int x,y;
+ 
+   spatial_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
+   frequency_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
+ 
+ 
+   for(i=0;i<largeur*hauteur;i++)
+   {
+      spatial_repr[i][0] = in[i];
+      spatial_repr[i][1] =  0.0f;
+   }
+ 
+   /*on calcule le plan d'exécution*/
+   plan=fftw_plan_dft_2d(hauteur, largeur, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE);
+ 
+   /*on calcule la transformée*/
+   fftw_execute(plan);
+ 
+  for(j=0;j<hauteur;j++)
+      for(i=0;i<largeur;i++)
+      {
+	        /*on recentre l'image*/
+	      x=good_modulus(i+largeur/2,largeur);
+	      y=good_modulus(j+hauteur/2,hauteur);
+          reOut[y*largeur+x]=frequency_repr[j*largeur+i][0];
+          imOut[y*largeur+x]=frequency_repr[j*largeur+i][1];
+      }
+ 
+   fftw_destroy_plan(plan);
+   fftw_free(spatial_repr);
+   fftw_free(frequency_repr);
+ 
+}
+		
+ 
+void fourier1dForward(float* in,
+                    float* reOut,
+                    float* imOut,
+                    unsigned int largeur)
+{
+   fftw_complex* spatial_repr;
+   fftw_complex* frequency_repr;
+   unsigned int i;
+   fftw_plan plan;
+   int x;
+ 
+   spatial_repr= fftw_malloc(sizeof(fftw_complex)*largeur);
+   frequency_repr= fftw_malloc(sizeof(fftw_complex)*largeur);
+ 
+ 
+   for(i=0;i<largeur;i++)
+   {
+      spatial_repr[i][0] = in[i];
+      spatial_repr[i][1] =  0.0f;
+   }
+ 
+   /*on calcule le plan d'exécution*/
+   plan=fftw_plan_dft_1d(largeur, spatial_repr, frequency_repr, FFTW_FORWARD, FFTW_ESTIMATE);
+ 
+   /*on calcule la transformée*/
+   fftw_execute(plan);
+ 
+
+      for(i=0;i<largeur;i++)
+      {
+	        /*on recentre l'image*/
+	      x=good_modulus(i+largeur/2,largeur);
+	      
+          reOut[x]=frequency_repr[i][0];
+          imOut[x]=frequency_repr[i][1];
+      }
+ 
+   fftw_destroy_plan(plan);
+   fftw_free(spatial_repr);
+   fftw_free(frequency_repr);
+ 
+}
+
+
+
+/* reIn : partie réel de l'image dans l'espace de Fourier
+ * imIn : partie imaginaire de l'image dans l'espace de Fourier
+ * out : image de sortie
+ * largeur : largeur des images d'entrée et de sortie
+ */
+void fourierBackward(float* reIn,
+                     float* imIn,
+                     float* out,
+                     unsigned int largeur,
+                     unsigned int hauteur)
+{
+   fftw_complex* spatial_repr;
+   fftw_complex* frequency_repr;
+   unsigned int i;
+   unsigned int j;
+   int x,y;
+   fftw_plan plan;
+ 
+   spatial_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
+   frequency_repr= fftw_malloc(sizeof(fftw_complex)*largeur*hauteur);
+ 
+   for(j=0;j<hauteur;j++)
+      for(i=0;i<largeur;i++)
+      {
+          /*on décentre*/
+	      x=i;
+	      y=j;
+	      x=good_modulus(i+largeur/2,largeur);
+	      y=good_modulus(j+hauteur/2,hauteur);
+
+	      frequency_repr[j*largeur+i][0]=reIn[y*largeur+x];
+	      frequency_repr[j*largeur+i][1]=imIn[y*largeur+x];
+      }
+ 
+  plan=fftw_plan_dft_2d(hauteur, largeur, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE);
+ 
+  fftw_execute(plan);
+ 
+   /*on retranscrit l'image complexe en image réelle, sans oublier de diviser par largeur*hauteur*/
+   for(i=0;i<largeur*hauteur;i++)
+   {
+      out[i]=spatial_repr[i][0]/(largeur*hauteur);
+   }
+ 
+   fftw_destroy_plan(plan);
+   fftw_free(spatial_repr);
+   fftw_free(frequency_repr);
+}
+
+void fourier1dBackward(float* reIn,
+                     float* imIn,
+                     float* out,
+                     unsigned int largeur)
+{
+   fftw_complex* spatial_repr;
+   fftw_complex* frequency_repr;
+   unsigned int i;
+   int x;
+   fftw_plan plan;
+ 
+   spatial_repr= fftw_malloc(sizeof(fftw_complex)*largeur);
+   frequency_repr= fftw_malloc(sizeof(fftw_complex)*largeur);
+ 
+  
+      for(i=0;i<largeur;i++)
+      {
+          /*on décentre*/
+	      x=i;
+	  
+	      x=good_modulus(i+largeur/2,largeur);
+
+	      frequency_repr[i][0]=reIn[x];
+	      frequency_repr[i][1]=imIn[x];
+      }
+ 
+  plan=fftw_plan_dft_1d(largeur, frequency_repr, spatial_repr, FFTW_BACKWARD, FFTW_ESTIMATE);
+ 
+  fftw_execute(plan);
+ 
+   /*on retranscrit l'image complexe en image réelle, sans oublier de diviser par largeur*hauteur*/
+   for(i=0;i<largeur;i++)
+   {
+      out[i]=sqrt(pow((spatial_repr[i][0]),2)+pow((spatial_repr[i][1]),2))/((float)largeur);
+// bien prendre le module, sinon on a des bandes noires
+   }
+ 
+   fftw_destroy_plan(plan);
+   fftw_free(spatial_repr);
+   fftw_free(frequency_repr);
+}
